@@ -10,7 +10,10 @@ const profileRoutes = require('./routes/profile');
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: true, // Allow all origins for now
+  credentials: true
+}));
 app.use(express.json());
 
 // Routes
@@ -18,6 +21,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/hackathons', hackathonRoutes);
 app.use('/api/profile', profileRoutes);
+
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Server is working!' });
+});
 
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/collab-hack-connect', {

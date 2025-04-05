@@ -10,12 +10,19 @@ const generateToken = (userId) => {
 // Sign up controller
 exports.signup = async (req, res) => {
   try {
+    console.log('Signup request body:', req.body);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      console.log('Validation errors:', errors.array());
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        errors: errors.array() 
+      });
     }
 
     const { name, email, username, password } = req.body;
+    console.log('Extracted data:', { name, email, username, password: password ? '***' : undefined });
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -23,6 +30,7 @@ exports.signup = async (req, res) => {
     });
 
     if (existingUser) {
+      console.log('User already exists:', existingUser.email);
       return res.status(400).json({
         error: 'User already exists with this email or username'
       });
@@ -36,7 +44,16 @@ exports.signup = async (req, res) => {
       password
     });
 
-    await user.save();
+    try {
+      await user.save();
+      console.log('User saved successfully:', user._id);
+    } catch (saveError) {
+      console.error('Error saving user:', saveError);
+      return res.status(500).json({
+        error: 'Error creating user',
+        details: saveError.message
+      });
+    }
 
     // Generate token
     const token = generateToken(user._id);
@@ -53,7 +70,10 @@ exports.signup = async (req, res) => {
     });
   } catch (error) {
     console.error('Signup error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ 
+      error: 'Server error during signup',
+      details: error.message
+    });
   }
 };
 

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from 'react-router-dom';
 
 interface AuthFormData {
   name?: string;
@@ -16,13 +17,14 @@ interface AuthFormData {
 export function AuthForms() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const signupData: AuthFormData = {
+    const signupData = {
       name: formData.get('name') as string,
       email: formData.get('email') as string,
       username: formData.get('username') as string,
@@ -30,7 +32,9 @@ export function AuthForms() {
     };
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/signup', {
+      console.log('Sending signup data:', signupData);
+      
+      const response = await fetch('http://localhost:5001/api/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -39,9 +43,10 @@ export function AuthForms() {
       });
 
       const data = await response.json();
+      console.log('Server response:', data);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Signup failed');
+        throw new Error(data.error || data.errors?.[0]?.msg || 'Signup failed');
       }
 
       // Store token in localStorage
@@ -53,8 +58,8 @@ export function AuthForms() {
         description: "Account created successfully.",
       });
 
-      // Reload page or redirect
-      window.location.reload();
+      // Redirect to dashboard
+      navigate('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);
       toast({
@@ -78,7 +83,7 @@ export function AuthForms() {
     };
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch('http://localhost:5001/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -101,8 +106,8 @@ export function AuthForms() {
         description: "Logged in successfully.",
       });
 
-      // Reload page or redirect
-      window.location.reload();
+      // Redirect to dashboard
+      navigate('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
       toast({

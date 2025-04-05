@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AuthForms } from "./AuthForms";
 import { useState } from "react";
 
@@ -32,6 +32,10 @@ const Navbar = () => {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
+              <DialogTitle>Authentication</DialogTitle>
+              <DialogDescription>
+                Sign in to your account or create a new one
+              </DialogDescription>
               <AuthForms />
             </DialogContent>
           </Dialog>
@@ -42,6 +46,10 @@ const Navbar = () => {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
+              <DialogTitle>Authentication</DialogTitle>
+              <DialogDescription>
+                Sign in to your account or create a new one
+              </DialogDescription>
               <AuthForms />
             </DialogContent>
           </Dialog>

@@ -14,42 +14,47 @@ const projectSchema = new mongoose.Schema({
     type: String,
     required: true
   }],
+  status: {
+    type: String,
+    enum: ['planning', 'in-progress', 'completed'],
+    default: 'planning'
+  },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
   collaborators: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
-  collaborationRequests: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
     },
+    role: String,
     status: {
       type: String,
       enum: ['pending', 'accepted', 'rejected'],
       default: 'pending'
-    },
-    message: String,
-    createdAt: {
-      type: Date,
-      default: Date.now
     }
   }],
-  githubLink: {
-    type: String
-  },
-  status: {
+  githubUrl: {
     type: String,
-    enum: ['active', 'completed', 'on-hold'],
-    default: 'active'
+    trim: true
+  },
+  demoUrl: {
+    type: String,
+    trim: true
+  },
+  lookingFor: [{
+    type: String
+  }],
+  timeline: {
+    startDate: Date,
+    endDate: Date
   }
 }, {
   timestamps: true
 });
 
 const Project = mongoose.model('Project', projectSchema);
+
 module.exports = Project; 

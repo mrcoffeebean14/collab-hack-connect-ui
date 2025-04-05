@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { Bell } from 'lucide-react';
+import { Bell, Calendar, MapPin, Users, Clock } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -15,6 +15,12 @@ import Navbar from "@/components/Navbar";
 import ProjectCard from "@/components/ProjectCard";
 import HackathonCard from "@/components/HackathonCard";
 import Footer from "@/components/Footer";
+import ProfileForm from "@/components/ProfileForm";
+import ProjectForm from "@/components/ProjectForm";
+import HackathonForm from "@/components/HackathonForm";
+import { API_CONFIG, API_ENDPOINTS, ROUTES } from '@/config/constants';
+import { useNavigate } from 'react-router-dom';
+import { Badge } from "@/components/ui/badge";
 
 interface Project {
   _id: string;
@@ -40,25 +46,37 @@ interface Hackathon {
   endDate: string;
   mode: string;
   status: string;
+  techStack?: string[];
+  venue?: string;
+  maxTeamSize?: number;
+  registrationDeadline?: string;
 }
 
 interface Profile {
+  _id: string;
+  user: string;
   bio: string;
   githubId: string;
-  techBackground: string;
+  technicalBackground: string;
   skills: string[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export default function Dashboard() {
-  const [myProjects, setMyProjects] = useState<Project[]>([]);
-  const [collaboratedProjects, setCollaboratedProjects] = useState<Project[]>([]);
-  const [registeredHackathons, setRegisteredHackathons] = useState<Hackathon[]>([]);
+  const [activeTab, setActiveTab] = useState('projects');
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [showHackathonForm, setShowHackathonForm] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userName, setUserName] = useState<string>('');
+  const [showProfileForm, setShowProfileForm] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const API_BASE_URL = 'http://localhost:5001/api';
+  const API_BASE_URL = API_CONFIG.BASE_URL;
 
   useEffect(() => {
     // Get user info from localStorage
@@ -66,60 +84,115 @@ export default function Dashboard() {
     if (userStr) {
       const user = JSON.parse(userStr);
       setUserName(user.name);
+    } else {
+      // Redirect to login if no user data
+      navigate(ROUTES.LOGIN);
+      return;
     }
     
     fetchDashboardData();
-  }, []);
+  }, [navigate]);
 
   const fetchDashboardData = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        toast({
+          title: "Authentication Error",
+          description: "Please log in to access the dashboard",
+          variant: "destructive",
+        });
+        navigate(ROUTES.LOGIN);
+        return;
+      }
+
       const headers = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
 
       // Fetch user's projects
-      const projectsResponse = await fetch(`${API_BASE_URL}/projects/my-projects`, {
-        headers
+      const projectsResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PROJECTS.MY_PROJECTS}`, {
+        headers,
+        signal: AbortSignal.timeout(API_CONFIG.TIMEOUT)
       });
+      
+      if (!projectsResponse.ok) {
+        throw new Error(`Projects API error: ${projectsResponse.status} ${projectsResponse.statusText}`);
+      }
+      
       const projectsData = await projectsResponse.json();
-      setMyProjects(projectsData.projects);
+      setProjects(projectsData.projects || []);
 
-      // Fetch collaborated projects
-      const collabResponse = await fetch(`${API_BASE_URL}/projects/collaborated`, {
-        headers
+      // Fetch hackathons
+      const hackathonsResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.HACKATHONS.REGISTERED}`, {
+        headers,
+        signal: AbortSignal.timeout(API_CONFIG.TIMEOUT)
       });
-      const collabData = await collabResponse.json();
-      setCollaboratedProjects(collabData.projects);
-
-      // Fetch registered hackathons
-      const hackathonsResponse = await fetch(`${API_BASE_URL}/hackathons/registered`, {
-        headers
-      });
+      
+      if (!hackathonsResponse.ok) {
+        throw new Error(`Hackathons API error: ${hackathonsResponse.status} ${hackathonsResponse.statusText}`);
+      }
+      
       const hackathonsData = await hackathonsResponse.json();
-      setRegisteredHackathons(hackathonsData.hackathons);
+      setHackathons(hackathonsData.hackathons || []);
 
-      // Fetch notifications
-      const notificationsResponse = await fetch(`${API_BASE_URL}/notifications`, {
-        headers
-      });
-      const notificationsData = await notificationsResponse.json();
-      setNotifications(notificationsData.notifications);
+      // Try to fetch notifications, but don't throw if it fails
+      try {
+        const notificationsResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.NOTIFICATIONS}`, {
+          headers,
+          signal: AbortSignal.timeout(API_CONFIG.TIMEOUT)
+        });
+        
+        if (notificationsResponse.ok) {
+          const notificationsData = await notificationsResponse.json();
+          setNotifications(notificationsData.notifications || []);
+        } else {
+          console.warn('Notifications endpoint not available');
+          setNotifications([]);
+        }
+      } catch (error) {
+        console.warn('Error fetching notifications:', error);
+        setNotifications([]);
+      }
 
       // Fetch profile
-      const profileResponse = await fetch(`${API_BASE_URL}/profile`, {
-        headers
+      const profileResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PROFILE}`, {
+        headers,
+        signal: AbortSignal.timeout(API_CONFIG.TIMEOUT)
       });
+      
+      if (!profileResponse.ok) {
+        throw new Error(`Profile API error: ${profileResponse.status} ${profileResponse.statusText}`);
+      }
+      
       const profileData = await profileResponse.json();
-      setProfile(profileData.profile);
+      setProfile(profileData.profile || null);
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load dashboard data",
-        variant: "destructive",
-      });
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          toast({
+            title: "Timeout Error",
+            description: "The request took too long to complete",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard data",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -163,6 +236,77 @@ export default function Dashboard() {
       container.scrollLeft += direction === 'left' ? -scrollAmount : scrollAmount;
     }
   };
+
+  const fetchProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.PROFILE}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setProfile(data.profile || null);
+      } else if (response.status === 404) {
+        // Profile doesn't exist yet, which is fine
+        setProfile(null);
+      } else {
+        const errorData = await response.json();
+        console.error('Error fetching profile:', errorData.error);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const handleProfileSuccess = () => {
+    fetchProfile();
+  };
+
+  const handleHackathonSuccess = () => {
+    setShowHackathonForm(false);
+    fetchDashboardData();
+  };
+
+  const fetchHackathons = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.HACKATHONS.ALL}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch hackathons');
+      }
+
+      const data = await response.json();
+      console.log('Fetched hackathons:', data);
+      setHackathons(data.hackathons || []);
+    } catch (error) {
+      console.error('Error fetching hackathons:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch hackathons',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchHackathons();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -208,7 +352,7 @@ export default function Dashboard() {
                         <li className="mb-2">✓ Learn new technologies</li>
                       </ul>
                     </div>
-                    <Button size="lg" className="bg-purple-600 hover:bg-purple-700 w-full max-w-xs text-lg py-6">
+                    <Button size="lg" className="bg-purple-600 hover:bg-purple-700 w-full max-w-xs text-lg py-6" onClick={() => navigate(ROUTES.PROJECTS)}>
                       Explore Projects
                     </Button>
                   </CardContent>
@@ -229,7 +373,7 @@ export default function Dashboard() {
                         <li className="mb-2">✓ Network with industry leaders</li>
                       </ul>
                     </div>
-                    <Button size="lg" variant="outline" className="w-full max-w-xs text-lg py-6">
+                    <Button size="lg" variant="outline" className="w-full max-w-xs text-lg py-6" onClick={() => navigate(ROUTES.HACKATHONS)}>
                       View Hackathons
                     </Button>
                   </CardContent>
@@ -363,7 +507,7 @@ export default function Dashboard() {
               </div>
 
               {/* User's Projects */}
-              {myProjects.map((project) => (
+              {projects.map((project) => (
                 <div key={project._id} className="flex-none w-full md:w-[70%] lg:w-[60%]">
                   <ProjectCard project={project} />
                 </div>
@@ -372,212 +516,222 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Upcoming Hackathons Section */}
-        <div className="container mx-auto py-16 px-4 bg-gray-50">
-          <h2 className="text-3xl font-bold text-center mb-12">Upcoming Hackathons</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {registeredHackathons.map((hackathon) => (
-              <HackathonCard key={hackathon._id} hackathon={hackathon} />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Dashboard Content */}
-      <div className="container mx-auto py-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Your Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Bell className="h-5 w-5" />
-                  {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
-                      {notifications.length}
-                    </span>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <SheetHeader>
-                  <SheetTitle>Notifications</SheetTitle>
-                </SheetHeader>
-                <div className="mt-4 space-y-4">
-                  {notifications.map((notification) => (
-                    <Card key={notification._id}>
-                      <CardContent className="pt-4">
-                        <p className="text-sm">{notification.message}</p>
-                        {notification.type === 'collaboration_request' && (
-                          <div className="flex gap-2 mt-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleCollaborationResponse(notification.projectId, notification._id, 'accepted')}
-                            >
-                              Accept
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleCollaborationResponse(notification.projectId, notification._id, 'rejected')}
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </SheetContent>
-            </Sheet>
-          </div>
-        </div>
-
-        <Tabs defaultValue="projects" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="projects">Projects</TabsTrigger>
-            <TabsTrigger value="hackathons">Hackathons</TabsTrigger>
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="projects">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h2 className="text-xl font-semibold mb-4">My Projects</h2>
-                <div className="space-y-4">
-                  {myProjects.map((project) => (
-                    <Card key={project._id}>
-                      <CardHeader>
-                        <CardTitle>{project.title}</CardTitle>
-                        <CardDescription>{project.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          {project.techStack.map((tech) => (
-                            <span
-                              key={tech}
-                              className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
-                            >
-                              {tech}
-                            </span>
-                          ))}
-                        </div>
-                        <p className="text-sm text-gray-500">Status: {project.status}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h2 className="text-xl font-semibold mb-4">Collaborated Projects</h2>
-                <div className="space-y-4">
-                  {collaboratedProjects.map((project) => (
-                    <Card key={project._id}>
-                      <CardHeader>
-                        <CardTitle>{project.title}</CardTitle>
-                        <CardDescription>{project.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          {project.techStack.map((tech) => (
-                            <span
-                              key={tech}
-                              className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
-                            >
-                              {tech}
-                            </span>
-                          ))}
-                        </div>
-                        <p className="text-sm text-gray-500">Status: {project.status}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
+        {/* Dashboard Content */}
+        <div className="container mx-auto py-12 px-4 mb-16">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold">Your Dashboard</h1>
+            <div className="flex items-center gap-4">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Bell className="h-5 w-5" />
+                    {notifications.length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
+                        {notifications.length}
+                      </span>
+                    )}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>Notifications</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4 space-y-4">
+                    {notifications.map((notification) => (
+                      <Card key={notification._id}>
+                        <CardContent className="pt-4">
+                          <p className="text-sm">{notification.message}</p>
+                          {notification.type === 'collaboration_request' && (
+                            <div className="flex gap-2 mt-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleCollaborationResponse(notification.projectId, notification._id, 'accepted')}
+                              >
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCollaborationResponse(notification.projectId, notification._id, 'rejected')}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="hackathons">
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Registered Hackathons</h2>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="projects">My Projects</TabsTrigger>
+              <TabsTrigger value="hackathons">Hackathons</TabsTrigger>
+              <TabsTrigger value="profile">Profile</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="projects" className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">My Projects</h2>
+                <Button onClick={() => setShowProjectForm(true)}>
+                  Create New Project
+                </Button>
+              </div>
+              {showProjectForm && (
+                <ProjectForm onSuccess={() => setShowProjectForm(false)} />
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {registeredHackathons.map((hackathon) => (
-                  <Card key={hackathon._id}>
-                    <CardHeader>
-                      <CardTitle>{hackathon.title}</CardTitle>
-                      <CardDescription>{hackathon.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <p className="text-sm">
-                          <span className="font-medium">Mode:</span> {hackathon.mode}
-                        </p>
-                        <p className="text-sm">
-                          <span className="font-medium">Status:</span> {hackathon.status}
-                        </p>
-                        <p className="text-sm">
-                          <span className="font-medium">Date:</span>{' '}
-                          {new Date(hackathon.startDate).toLocaleDateString()} -{' '}
-                          {new Date(hackathon.endDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                {projects.map((project) => (
+                  <ProjectCard key={project._id} project={project} />
                 ))}
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-                <CardDescription>Your professional details and achievements</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {profile ? (
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-medium">Bio</h3>
-                      <p className="text-sm text-gray-600">{profile.bio}</p>
-                    </div>
-                    <div>
-                      <h3 className="font-medium">GitHub</h3>
-                      <p className="text-sm text-gray-600">{profile.githubId}</p>
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Technical Background</h3>
-                      <p className="text-sm text-gray-600">{profile.techBackground}</p>
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Skills</h3>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {profile.skills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-sm"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+            <TabsContent value="hackathons" className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">Hackathons</h2>
+                <Button onClick={() => setShowHackathonForm(true)}>
+                  Create New Hackathon
+                </Button>
+              </div>
+              {showHackathonForm && (
+                <HackathonForm onSuccess={handleHackathonSuccess} />
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {hackathons.length === 0 ? (
+                  <div className="col-span-full text-center py-8">
+                    <p className="text-muted-foreground">No hackathons found. Create one to get started!</p>
                   </div>
                 ) : (
-                  <div className="text-center py-6">
-                    <p className="text-gray-500">Profile not created yet</p>
-                    <Button className="mt-4">Create Profile</Button>
-                  </div>
+                  hackathons.map((hackathon) => (
+                    <Card key={hackathon._id} className="p-6">
+                      <CardHeader>
+                        <CardTitle>{hackathon.title}</CardTitle>
+                        <CardDescription>{hackathon.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">
+                              {new Date(hackathon.startDate).toLocaleDateString()} - {new Date(hackathon.endDate).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm capitalize">{hackathon.mode}</span>
+                            {hackathon.venue && <span className="text-sm"> - {hackathon.venue}</span>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">Max Team Size: {hackathon.maxTeamSize}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">
+                              Registration Deadline: {new Date(hackathon.registrationDeadline).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {hackathon.techStack && hackathon.techStack.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {hackathon.techStack.map((tech, index) => (
+                                <Badge key={index} variant="secondary">
+                                  {tech}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                      <CardFooter>
+                        <Button variant="outline" className="w-full">
+                          View Details
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+              </div>
+            </TabsContent>
 
-      <Footer />
+            <TabsContent value="profile">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profile Information</CardTitle>
+                  <CardDescription>Your professional details and achievements</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {profile ? (
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="font-medium">Bio</h3>
+                        <p className="text-sm text-gray-600 mt-1">{profile.bio}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-medium">GitHub</h3>
+                        <p className="text-sm text-gray-600 mt-1">{profile.githubId}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-medium">Technical Background</h3>
+                        <p className="text-sm text-gray-600 mt-1">{profile.technicalBackground}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-medium">Skills</h3>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {profile.skills.map((skill) => (
+                            <span
+                              key={skill}
+                              className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="pt-4">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setShowProfileForm(true)}
+                          className="w-full"
+                        >
+                          Update Profile
+                        </Button>
+                        {showProfileForm && (
+                          <div className="mt-4">
+                            <ProfileForm initialData={profile} onSuccess={handleProfileSuccess} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <p className="text-gray-500 text-center">Profile not created yet</p>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setShowProfileForm(true)}
+                        className="w-full"
+                      >
+                        Create Profile
+                      </Button>
+                      {showProfileForm && (
+                        <div className="mt-4">
+                          <ProfileForm onSuccess={handleProfileSuccess} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <Footer />
+      </div>
     </div>
   );
 } 

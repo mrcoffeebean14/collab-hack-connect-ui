@@ -38,6 +38,22 @@ const hackathonSchema = new mongoose.Schema({
     rank: String,
     prize: String
   }],
+  techStack: [{
+    type: String
+  }],
+  maxTeamSize: {
+    type: Number,
+    required: true
+  },
+  registrationDeadline: {
+    type: Date,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['upcoming', 'ongoing', 'completed'],
+    default: 'upcoming'
+  },
   registrations: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -55,22 +71,11 @@ const hackathonSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     }
-  }],
-  maxTeamSize: {
-    type: Number,
-    required: true
-  },
-  techStack: [{
-    type: String
-  }],
-  status: {
-    type: String,
-    enum: ['upcoming', 'ongoing', 'completed'],
-    default: 'upcoming'
-  }
+  }]
 }, {
   timestamps: true
 });
 
 const Hackathon = mongoose.model('Hackathon', hackathonSchema);
+
 module.exports = Hackathon; 

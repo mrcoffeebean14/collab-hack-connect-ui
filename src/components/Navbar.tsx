@@ -1,8 +1,12 @@
-
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { AuthForms } from "./AuthForms";
+import { useState } from "react";
 
 const Navbar = () => {
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
   return (
     <nav className="bg-white shadow-sm py-4 px-4 md:px-8">
       <div className="container mx-auto flex flex-wrap items-center justify-between">
@@ -21,8 +25,26 @@ const Navbar = () => {
         
         {/* Authentication buttons */}
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50">Log In</Button>
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white">Sign Up</Button>
+          <Dialog open={isAuthOpen} onOpenChange={setIsAuthOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50">
+                Log In
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <AuthForms />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isAuthOpen} onOpenChange={setIsAuthOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                Sign Up
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <AuthForms />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </nav>

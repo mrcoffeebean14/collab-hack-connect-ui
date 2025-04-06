@@ -14,7 +14,11 @@ interface AuthFormData {
   password: string;
 }
 
-export function AuthForms() {
+interface AuthFormsProps {
+  onSuccess?: () => void;
+}
+
+export const AuthForms = ({ onSuccess }: AuthFormsProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -60,6 +64,10 @@ export function AuthForms() {
 
       // Redirect to dashboard
       navigate('/dashboard');
+
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error('Signup error:', error);
       toast({
@@ -108,6 +116,10 @@ export function AuthForms() {
 
       // Redirect to dashboard
       navigate('/dashboard');
+
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error('Login error:', error);
       toast({
